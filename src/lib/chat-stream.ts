@@ -1,6 +1,6 @@
-export type ChatMessage = { role: "user" | "assistant"; content: string };
+import { supabase } from "@/integrations/supabase/client";
 
-const PYTHON_SERVICE_URL = "http://localhost:3001";
+export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 export async function streamChat({
   messages,
@@ -16,48 +16,37 @@ export async function streamChat({
   onError: (error: string) => void;
 }) {
   try {
-    // Build context from conversation history
-    const conversationContext = messages
-      .slice(-4) // Last 4 messages for context
-      .map((m) => `${m.role === "user" ? "User" : "Bot"}: ${m.content}`)
-      .join("\n");
-
-    // Get the latest user message
-    const userMessage = messages[messages.length - 1]?.content || "";
-    
-    const prompt = customSystemPrompt
-      ? `${customSystemPrompt}\n\nContext:\n${conversationContext}\n\nRespond to: ${userMessage}`
-      : `${conversationContext}\n\nRespond to: ${userMessage}`;
-
-    // Call Python service
-    const response = await fetch(`${PYTHON_SERVICE_URL}/ask`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    // Call Supabase Edge Function with Gemini provider
+    const { data, error } = await supabase.functions.invoke("cyber-chat", {
+      body: {
+        messages,
+        customSystemPrompt,
+        customProvider: {
+          providerId: "gemini",
+          modelId: "gemini-pro",
+          apiKey: "gemini-no-auth",
+        },
       },
-      body: JSON.stringify({ prompt }),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      onError(errorData.error || `خطأ في الخادم: ${response.statusText}`);
+    if (error) {
+      onError(error.message || "فشل الاتصال بخدمة Gemini");
       return;
     }
 
-    const data = await response.json();
-    
-    if (data.error) {
-      onError(data.error);
+    if (!data) {
+      onError("لم تصل أي بيانات من الخادم");
       return;
     }
 
-    const fullResponse = data.response || "";
-    
+    const fullResponse = data.response || data.message || data || "";
+    const responseText = typeof fullResponse === "string" ? fullResponse : JSON.stringify(fullResponse);
+
     // Stream the response character by character for smooth display
     let charIndex = 0;
     const streamInterval = setInterval(() => {
-      if (charIndex < fullResponse.length) {
-        onDelta(fullResponse[charIndex]);
+      if (charIndex < responseText.length) {
+        onDelta(responseText[charIndex]);
         charIndex++;
       } else {
         clearInterval(streamInterval);

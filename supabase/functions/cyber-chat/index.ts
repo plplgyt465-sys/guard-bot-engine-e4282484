@@ -958,7 +958,39 @@ async function callAI(messages: any[], tools: any[], stream: boolean, customProv
         "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
         "x-same-domain": "1",
       };
-      return fetch("https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate", { method: "POST", headers, body: payload });
+      
+      try {
+        const geminiResponse = await fetch("https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate", { 
+          method: "POST", 
+          headers, 
+          body: payload 
+        });
+        
+        if (!geminiResponse.ok) {
+          return new Response(JSON.stringify({ 
+            error: `Gemini API error: ${geminiResponse.statusText}`,
+            choices: [{ message: { content: "فشل الاتصال بخدمة Gemini" } }]
+          }), { status: 500, headers: { "Content-Type": "application/json" } });
+        }
+        
+        const responseText = await geminiResponse.text();
+        const parsedContent = parseGeminiResponse(responseText);
+        
+        // Return in OpenAI-compatible format
+        return new Response(JSON.stringify({
+          choices: [{ 
+            message: { 
+              content: parsedContent || "لم يتمكن من معالجة الرد"
+            }
+          }]
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : "خطأ في الاتصال بـ Gemini";
+        return new Response(JSON.stringify({ 
+          error: errorMsg,
+          choices: [{ message: { content: errorMsg } }]
+        }), { status: 500, headers: { "Content-Type": "application/json" } });
+      }
     }
     
     const config = PROVIDER_CONFIGS[providerId];
@@ -1175,7 +1207,9 @@ serve(async (req) => {
     const { messages, customSystemPrompt, customProvider, fallbackProviderKeys } = await req.json();
     
     // Validate we have either custom provider, fallback keys, or default key
-    if (!customProvider?.apiKey && !fallbackProviderKeys?.length && !Deno.env.get("LOVABLE_API_KEY")) {
+    // Gemini doesn't need an API key, so allow it even without keys
+    const isGeminiRequest = customProvider?.providerId === "gemini";
+    if (!isGeminiRequest && !customProvider?.apiKey && !fallbackProviderKeys?.length && !Deno.env.get("LOVABLE_API_KEY")) {
       throw new Error("No AI API key configured");
     }
 
@@ -1331,9 +1365,9 @@ serve(async (req) => {
 
             let assistantMsg: any;
             if (isGemini) {
-              const responseText = await aiResponse.text();
-              const geminiContent = parseGeminiResponse(responseText);
-              assistantMsg = { content: geminiContent, tool_calls: undefined };
+              // Gemini response is already parsed in callAI, just extract the content
+              const aiData = await aiResponse.json();
+              assistantMsg = aiData.choices?.[0]?.message || { content: aiData.content || "لا يوجد رد" };
             } else {
               const aiData = isAnthropic ? parseAnthropicResponse(await aiResponse.json()) : await aiResponse.json();
               assistantMsg = aiData.choices?.[0]?.message;
