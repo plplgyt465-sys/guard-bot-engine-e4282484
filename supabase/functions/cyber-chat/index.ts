@@ -952,44 +952,58 @@ async function callAI(messages: any[], tools: any[], stream: boolean, customProv
     // Special case: Gemini doesn't need a config lookup, it's built-in
     if (providerId === "gemini") {
       const lastUserMessage = messages[messages.length - 1]?.content || "";
-      const payload = buildGeminiPayload(lastUserMessage);
-      const headers: Record<string, string> = {
-        "accept": "*/*",
-        "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
-        "x-same-domain": "1",
-      };
       
       try {
-        const geminiResponse = await fetch("https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate", { 
-          method: "POST", 
-          headers, 
-          body: payload 
+        // Use Google's MakerSuite API endpoint directly
+        const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyDgwpVeMXd0jYKo8LlBJqmzpHOOmK3BTNI", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: lastUserMessage
+              }]
+            }],
+            generationConfig: {
+              maxOutputTokens: 2048,
+              temperature: 0.7
+            }
+          })
         });
-        
-        if (!geminiResponse.ok) {
-          return new Response(JSON.stringify({ 
-            error: `Gemini API error: ${geminiResponse.statusText}`,
-            choices: [{ message: { content: "فشل الاتصال بخدمة Gemini" } }]
-          }), { status: 500, headers: { "Content-Type": "application/json" } });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          return new Response(JSON.stringify({
+            choices: [{
+              message: {
+                content: `خطأ من Gemini: ${errorData.error?.message || response.statusText}`
+              }
+            }]
+          }), { status: 200, headers: { "Content-Type": "application/json" } });
         }
-        
-        const responseText = await geminiResponse.text();
-        const parsedContent = parseGeminiResponse(responseText);
-        
+
+        const data = await response.json();
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || "لم يتمكن Gemini من إنشاء رد";
+
         // Return in OpenAI-compatible format
         return new Response(JSON.stringify({
-          choices: [{ 
-            message: { 
-              content: parsedContent || "لم يتمكن من معالجة الرد"
+          choices: [{
+            message: {
+              content: content
             }
           }]
         }), { status: 200, headers: { "Content-Type": "application/json" } });
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "خطأ في الاتصال بـ Gemini";
-        return new Response(JSON.stringify({ 
-          error: errorMsg,
-          choices: [{ message: { content: errorMsg } }]
-        }), { status: 500, headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({
+          choices: [{
+            message: {
+              content: `حدث خطأ: ${errorMsg}`
+            }
+          }]
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
     }
     
