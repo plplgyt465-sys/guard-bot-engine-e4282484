@@ -31,14 +31,15 @@ export async function streamChat({
     }
   }
 
+  // Use Gemini by default (no API key required) if no custom provider is enabled
   if (providerSettings && providerSettings.enabled) {
     const activeKeys = (providerSettings.providerKeys?.[providerSettings.providerId] || []).filter(k => k.key.trim());
-    if (activeKeys.length > 0) {
+    if (activeKeys.length > 0 || providerSettings.providerId === "gemini") {
       allProviderKeys.sort((a, b) => a.providerId === providerSettings.providerId ? -1 : b.providerId === providerSettings.providerId ? 1 : 0);
       body.customProvider = {
         providerId: providerSettings.providerId,
         modelId: providerSettings.modelId,
-        apiKey: activeKeys[0].key,
+        apiKey: activeKeys.length > 0 ? activeKeys[0].key : "gemini-no-auth",
         apiKeys: activeKeys.map(k => k.key),
         allProviderKeys,
       };
@@ -46,6 +47,15 @@ export async function streamChat({
   } else if (allProviderKeys.length > 0) {
     // Custom provider disabled but keys exist - send as fallback when default fails
     body.fallbackProviderKeys = allProviderKeys;
+  } else {
+    // Default to Gemini (no API key required)
+    body.customProvider = {
+      providerId: "gemini",
+      modelId: "gemini-pro",
+      apiKey: "gemini-no-auth",
+      apiKeys: [],
+      allProviderKeys: [],
+    };
   }
 
   const resp = await fetch(CHAT_URL, {

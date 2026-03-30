@@ -11,6 +11,17 @@ export interface AIProvider {
 
 export const AI_PROVIDERS: AIProvider[] = [
   {
+    id: "gemini",
+    name: "Google Gemini",
+    nameAr: "جوجل جيميناي",
+    baseUrl: "https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate",
+    apiKeyUrl: "no-auth-required",
+    models: [
+      { id: "gemini-pro", name: "Gemini Pro (No Limits)" },
+      { id: "gemini-2.5", name: "Gemini 2.5 (Latest)" },
+    ],
+  },
+  {
     id: "openai",
     name: "OpenAI",
     nameAr: "أوبن إيه آي",
@@ -214,5 +225,22 @@ export async function updateKeyStatus(keyIndex: number, status: APIKeyEntry["sta
     activeKeys[keyIndex].lastChecked = Date.now();
     settings.providerKeys[settings.providerId] = activeKeys;
     await saveAIProviderSettings(settings);
+  } catch {}
+}
+
+// Initialize Gemini as default if no settings exist
+export async function ensureGeminiDefault() {
+  try {
+    const settings = await getAIProviderSettings();
+    if (!settings) {
+      await saveAIProviderSettings({
+        providerId: "gemini",
+        modelId: "gemini-pro",
+        apiKey: "",
+        apiKeys: [],
+        providerKeys: {},
+        enabled: false, // Gemini is enabled by default in chat-stream
+      });
+    }
   } catch {}
 }

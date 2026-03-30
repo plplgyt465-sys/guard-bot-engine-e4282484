@@ -47,8 +47,8 @@ export function AgentSettingsDialog() {
           setProviderKeys(settings.providerKeys || {});
         } else {
           setProviderEnabled(false);
-          setSelectedProvider("openai");
-          setSelectedModel("");
+          setSelectedProvider("gemini");
+          setSelectedModel("gemini-pro");
           setProviderKeys({});
         }
       })();
