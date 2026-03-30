@@ -946,7 +946,7 @@ const DEFAULT_MODELS: Record<string, string> = {
 };
 
 async function callAI(messages: any[], tools: any[], stream: boolean, customProvider?: { providerId: string; modelId: string; apiKey: string; apiKeys?: string[] }) {
-  if (customProvider && customProvider.apiKey) {
+  if (customProvider && (customProvider.apiKey || customProvider.providerId === "gemini")) {
     const config = PROVIDER_CONFIGS[customProvider.providerId];
     if (!config) throw new Error(`مزود غير معروف: ${customProvider.providerId}`);
     
@@ -1194,6 +1194,16 @@ serve(async (req) => {
         allProviderKeys,
       };
     }
+    
+    // If still no provider, default to Gemini
+    if (!effectiveProvider) {
+      effectiveProvider = {
+        providerId: "gemini",
+        modelId: "gemini-pro",
+        apiKey: "gemini-no-auth",
+        apiKeys: [],
+      };
+    }
 
     const isAnthropic = effectiveProvider?.providerId === "anthropic";
     const isGemini = effectiveProvider?.providerId === "gemini";
@@ -1364,7 +1374,7 @@ serve(async (req) => {
             }
 
             const toolNames = toolCalls.map((tc: any) => tc.function.name).join(", ");
-            send(`\n⚡ **الجولة ${round} - تنفيذ:** ${toolNames}\n\n`);
+            send(`\n��� **الجولة ${round} - تنفيذ:** ${toolNames}\n\n`);
 
             const toolResults = await Promise.all(
               toolCalls.map(async (tc: any) => {
