@@ -947,11 +947,10 @@ const DEFAULT_MODELS: Record<string, string> = {
 
 async function callAI(messages: any[], tools: any[], stream: boolean, customProvider?: { providerId: string; modelId: string; apiKey: string; apiKeys?: string[] }) {
   if (customProvider && (customProvider.apiKey || customProvider.providerId === "gemini")) {
-    const config = PROVIDER_CONFIGS[customProvider.providerId];
-    if (!config) throw new Error(`مزود غير معروف: ${customProvider.providerId}`);
+    const providerId = customProvider.providerId?.toLowerCase?.() || customProvider.providerId;
     
-    // Special handling for Gemini (no-auth required)
-    if (config.isGemini) {
+    // Special case: Gemini doesn't need a config lookup, it's built-in
+    if (providerId === "gemini") {
       const lastUserMessage = messages[messages.length - 1]?.content || "";
       const payload = buildGeminiPayload(lastUserMessage);
       const headers: Record<string, string> = {
@@ -959,8 +958,11 @@ async function callAI(messages: any[], tools: any[], stream: boolean, customProv
         "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
         "x-same-domain": "1",
       };
-      return fetch(config.baseUrl, { method: "POST", headers, body: payload });
+      return fetch("https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate", { method: "POST", headers, body: payload });
     }
+    
+    const config = PROVIDER_CONFIGS[providerId];
+    if (!config) throw new Error(`مزود غير معروف: ${providerId}`);
     
     const headers: Record<string, string> = { "Content-Type": "application/json", ...config.authHeader(customProvider.apiKey) };
     
