@@ -1,8 +1,6 @@
-import { getAIProviderSettings } from "./ai-providers";
-
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cyber-chat`;
+const PYTHON_SERVICE_URL = "http://localhost:3001";
 
 export async function streamChat({
   messages,
@@ -17,118 +15,58 @@ export async function streamChat({
   onDone: () => void;
   onError: (error: string) => void;
 }) {
-  const providerSettings = await getAIProviderSettings();
-  const body: any = { messages, customSystemPrompt };
+  try {
+    // Build context from conversation history
+    const conversationContext = messages
+      .slice(-4) // Last 4 messages for context
+      .map((m) => `${m.role === "user" ? "User" : "Bot"}: ${m.content}`)
+      .join("\n");
 
-  // Build allProviderKeys from ALL providers that have keys, regardless of enabled state
-  const allProviderKeys: { providerId: string; keys: string[] }[] = [];
-  if (providerSettings) {
-    for (const [pid, keys] of Object.entries(providerSettings.providerKeys || {})) {
-      const validKeys = (keys || []).filter(k => k.key.trim()).map(k => k.key);
-      if (validKeys.length > 0) {
-        allProviderKeys.push({ providerId: pid, keys: validKeys });
+    // Get the latest user message
+    const userMessage = messages[messages.length - 1]?.content || "";
+    
+    const prompt = customSystemPrompt
+      ? `${customSystemPrompt}\n\nContext:\n${conversationContext}\n\nRespond to: ${userMessage}`
+      : `${conversationContext}\n\nRespond to: ${userMessage}`;
+
+    // Call Python service
+    const response = await fetch(`${PYTHON_SERVICE_URL}/ask`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      onError(errorData.error || `خطأ في الخادم: ${response.statusText}`);
+      return;
+    }
+
+    const data = await response.json();
+    
+    if (data.error) {
+      onError(data.error);
+      return;
+    }
+
+    const fullResponse = data.response || "";
+    
+    // Stream the response character by character for smooth display
+    let charIndex = 0;
+    const streamInterval = setInterval(() => {
+      if (charIndex < fullResponse.length) {
+        onDelta(fullResponse[charIndex]);
+        charIndex++;
+      } else {
+        clearInterval(streamInterval);
+        onDone();
       }
-    }
+    }, 20); // 20ms per character for smooth streaming effect
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "فشل الاتصال بخدمة Gemini";
+    onError(errorMessage);
   }
-
-  // Use Gemini by default (no API key required) if no custom provider is enabled
-  if (providerSettings && providerSettings.enabled) {
-    const activeKeys = (providerSettings.providerKeys?.[providerSettings.providerId] || []).filter(k => k.key.trim());
-    if (activeKeys.length > 0 || providerSettings.providerId === "gemini") {
-      allProviderKeys.sort((a, b) => a.providerId === providerSettings.providerId ? -1 : b.providerId === providerSettings.providerId ? 1 : 0);
-      body.customProvider = {
-        providerId: providerSettings.providerId,
-        modelId: providerSettings.modelId,
-        apiKey: activeKeys.length > 0 ? activeKeys[0].key : "gemini-no-auth",
-        apiKeys: activeKeys.map(k => k.key),
-        allProviderKeys,
-      };
-    }
-  } else if (allProviderKeys.length > 0) {
-    // Custom provider disabled but keys exist - send as fallback when default fails
-    body.fallbackProviderKeys = allProviderKeys;
-  } else {
-    // Default to Gemini (no API key required)
-    body.customProvider = {
-      providerId: "gemini",
-      modelId: "gemini-pro",
-      apiKey: "gemini-no-auth",
-      apiKeys: [],
-      allProviderKeys: [],
-    };
-  }
-
-  const resp = await fetch(CHAT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!resp.ok) {
-    const data = await resp.json().catch(() => ({}));
-    onError(data.error || "فشل الاتصال بالوكيل");
-    return;
-  }
-
-  if (!resp.body) {
-    onError("لا يوجد استجابة");
-    return;
-  }
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let textBuffer = "";
-  let streamDone = false;
-
-  while (!streamDone) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    textBuffer += decoder.decode(value, { stream: true });
-
-    let newlineIndex: number;
-    while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-      let line = textBuffer.slice(0, newlineIndex);
-      textBuffer = textBuffer.slice(newlineIndex + 1);
-
-      if (line.endsWith("\r")) line = line.slice(0, -1);
-      if (line.startsWith(":") || line.trim() === "") continue;
-      if (!line.startsWith("data: ")) continue;
-
-      const jsonStr = line.slice(6).trim();
-      if (jsonStr === "[DONE]") {
-        streamDone = true;
-        break;
-      }
-
-      try {
-        const parsed = JSON.parse(jsonStr);
-        const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-        if (content) onDelta(content);
-      } catch {
-        textBuffer = line + "\n" + textBuffer;
-        break;
-      }
-    }
-  }
-
-  if (textBuffer.trim()) {
-    for (let raw of textBuffer.split("\n")) {
-      if (!raw) continue;
-      if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-      if (raw.startsWith(":") || raw.trim() === "") continue;
-      if (!raw.startsWith("data: ")) continue;
-      const jsonStr = raw.slice(6).trim();
-      if (jsonStr === "[DONE]") continue;
-      try {
-        const parsed = JSON.parse(jsonStr);
-        const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-        if (content) onDelta(content);
-      } catch { /* ignore */ }
-    }
-  }
-
-  onDone();
 }
