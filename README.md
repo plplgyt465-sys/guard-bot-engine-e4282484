@@ -1,73 +1,44 @@
-# Welcome to your Lovable project
+# ThreatPulse — Threat Intelligence Platform
 
-## Project info
+> Aggregated Cyber Threat Intelligence & IOC Management System
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue) ![React](https://img.shields.io/badge/React-18+-61DAFB) ![License](https://img.shields.io/badge/License-MIT-green)
 
-## How can I edit this code?
+## Overview
 
-There are several ways of editing your application.
+ThreatPulse is a threat intelligence aggregation platform that collects, correlates, and visualizes IOCs (Indicators of Compromise) from multiple threat feeds. Built for SOC analysts and threat hunters who need a centralized view of the threat landscape.
 
-**Use Lovable**
+## Features
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- 🌍 **Multi-Feed Aggregation** — OTX, MISP, AbuseIPDB, VirusTotal
+- 🔗 **IOC Correlation** — Link IPs, domains, hashes, and threat actors
+- 🗺️ **Threat Map** — Real-time global attack visualization
+- 🏷️ **TTP Mapping** — MITRE ATT&CK framework alignment
+- 🔔 **Alerting** — Notify when known IOCs appear in your environment
+- 📤 **Export** — STIX/TAXII, JSON, CSV formats
 
-Changes made via Lovable will be committed automatically to this repo.
+## Installation
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+git clone https://github.com/plplgyt465-sys/guard-bot-engine-e4282484
+cd ThreatPulse
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Supported Threat Feeds
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+| Feed | Type |
+|------|------|
+| AlienVault OTX | IP, Domain, Hash |
+| AbuseIPDB | Malicious IPs |
+| VirusTotal | File & URL reputation |
+| MISP | Community IOCs |
 
-**Use GitHub Codespaces**
+## Disclaimer
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+> For authorized security operations and research only.
 
-## What technologies are used for this project?
+## Author
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+**Shadow Core** — Threat Intelligence Analyst | SOC Specialist
