@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Shield, Terminal, Wrench, MessageSquare, Plus, Trash2, History, Settings, Download } from "lucide-react";
-import { AgentSettingsDialog, getAgentCustomPrompt } from "@/components/AgentSettingsDialog";
+
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ChatMessage } from "@/components/ChatMessage";
@@ -127,7 +127,7 @@ const Index = () => {
     try {
       await streamChat({
         messages: newMessages,
-        customSystemPrompt: getAgentCustomPrompt() || undefined,
+        customSystemPrompt: undefined,
         onDelta: (chunk) => upsertAssistant(chunk),
         onDone: () => {
           setIsLoading(false);
@@ -226,7 +226,6 @@ const Index = () => {
             </div>
 
             <div className="ml-auto flex md:hidden gap-1">
-              <AgentSettingsDialog />
               <button onClick={() => setShowSidebar(true)} className="p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors">
                 <History className="w-4 h-4" />
               </button>
@@ -239,7 +238,6 @@ const Index = () => {
             </div>
 
             <div className="hidden md:flex ml-auto items-center gap-3">
-              <AgentSettingsDialog />
               <Link to="/terminal" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-primary/10">
                 <Terminal className="w-3.5 h-3.5" />
                 <span>Terminal</span>
